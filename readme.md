@@ -4,11 +4,11 @@
 
 ## 快速开始
 
-1. 配置智谱智能体:
+1. 配置 OpenAI 聊天模型:
    启动 `web.py` 前设置环境变量：
-   - `ZHIPU_API_KEY`：你的智谱 API Key
-   - `ZHIPU_API_BASE`：接口地址（默认 `https://open.bigmodel.cn/api/paas/v4`）
-   - `ZHIPU_MODEL`：模型名（默认 `glm-5`）
+   - `OPENAI_API_KEY`：你的 OpenAI API Key
+   - `OPENAI_API_BASE`：接口地址（默认 `https://api.openai.com/v1`）
+   - `OPENAI_MODEL`：模型名（默认 `gpt-4o-mini`）
    不配置 Key 时，系统会进入本地演示回复模式。
 
 2. 安装依赖:

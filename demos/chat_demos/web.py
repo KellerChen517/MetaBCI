@@ -11,22 +11,22 @@ from collector import collecting_all_info
 
 
 def call_ai_model(messages):
-    """Call Zhipu chat/completions API.
+    """Call OpenAI chat/completions API.
 
     Configure with env vars:
-    - ZHIPU_API_KEY
-    - ZHIPU_API_BASE (default: https://open.bigmodel.cn/api/paas/v4)
-    - ZHIPU_MODEL (default: glm-5)
+    - OPENAI_API_KEY
+    - OPENAI_API_BASE (default: https://api.openai.com/v1)
+    - OPENAI_MODEL (default: gpt-4o-mini)
     """
-    api_base = os.getenv("ZHIPU_API_BASE", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
-    api_key = os.getenv("ZHIPU_API_KEY", "")
-    model = os.getenv("ZHIPU_MODEL", "glm-5")
+    api_base = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1").rstrip("/")
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     latest_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
     if not api_key:
         return (
             "[本地演示模式] 我收到了你的消息："
-            f"{latest_user}。\n请配置 ZHIPU_API_KEY 以启用智谱模型对话。"
+            f"{latest_user}。\n请配置 OPENAI_API_KEY 以启用 OpenAI 模型对话。"
         )
 
     url = f"{api_base}/chat/completions"
@@ -43,7 +43,7 @@ def call_ai_model(messages):
     try:
         resp = requests.post(url, headers=headers, json=payload, timeout=30)
     except requests.RequestException as e:
-        raise RuntimeError(f"无法连接智谱接口: {e}") from e
+        raise RuntimeError(f"无法连接 OpenAI 接口: {e}") from e
 
     if resp.status_code != 200:
         raise RuntimeError(f"API调用失败: {resp.status_code}, {resp.text}")
@@ -52,7 +52,7 @@ def call_ai_model(messages):
         body = resp.json()
         return body["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        raise RuntimeError(f"智谱接口返回格式异常: {resp.text}") from e
+        raise RuntimeError(f"OpenAI 接口返回格式异常: {resp.text}") from e
 
 
 def web_server():
