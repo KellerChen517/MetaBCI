@@ -1,3 +1,4 @@
+import os
 from socket import *
 
 from flask_sqlalchemy import SQLAlchemy
@@ -13,7 +14,8 @@ def collecting_all_info(user_name, user_info):
     # chatchat_server = socket(AF_INET, SOCK_DGRAM)
 
     # Online_emotion_server.bind(('192.168.31.10', udp_port_Online_emotion))
-    Online_emotion_server.bind(('172.20.10.3', udp_port_Online_emotion))
+    collector_host = os.getenv('COLLECTOR_HOST', '127.0.0.1')
+    Online_emotion_server.bind((collector_host, udp_port_Online_emotion))
     # chatchat_server.bind(('127.0.0.1', tcp_port_chatchat))
     # chatchat_server.listen(5)
 
@@ -37,7 +39,7 @@ def collecting_all_info(user_name, user_info):
         name = db.Column(db.String(80), unique=True, nullable=False)
         info = db.Column(db.String(200), unique=False, nullable=False)
 
-    DATABASE_URI = 'sqlite://///Users/meijiawei/Documents/metabci/MetaBCI/demos/chat_demos/users.db'
+    DATABASE_URI = os.getenv('USERS_DB_URI', 'sqlite:///users.db')
 
     # 创建数据库引擎
     engine = create_engine(DATABASE_URI)
