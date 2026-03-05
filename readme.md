@@ -31,3 +31,10 @@
 6. 情感识别:
    用户登录后会开启情感接收端口。
    运行 Online_emotion.py 文件进行情感识别。
+
+
+7. 模拟脑电信号测试（无脑电帽时）:
+   在 `demos/chat_demos` 目录下运行：
+   `python mock_eeg_emotion.py --mode random --collector-host 127.0.0.1 --collector-port 4023`
+   可选模式：`calm / stress / happy / random`。
+   如果只想验证分类不发UDP，可加 `--dry-run`。
