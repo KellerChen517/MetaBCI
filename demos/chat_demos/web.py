@@ -1,9 +1,8 @@
 import json
 import multiprocessing as mp
 import os
-import urllib.error
-import urllib.request
 
+import requests
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -11,76 +10,49 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from collector import collecting_all_info
 
 
-def _extract_zhipu_reply(body):
-    """Best-effort parse for multiple Zhipu response schemas."""
-    if isinstance(body, dict):
-        if body.get("choices"):
-            content = body["choices"][0].get("message", {}).get("content")
-            if content:
-                return content.strip()
-
-        if isinstance(body.get("output"), dict):
-            out = body["output"]
-            if out.get("text"):
-                return str(out["text"]).strip()
-
-        if body.get("reply"):
-            return str(body["reply"]).strip()
-
-        if body.get("data") and isinstance(body["data"], dict):
-            data = body["data"]
-            if data.get("reply"):
-                return str(data["reply"]).strip()
-
-    raise RuntimeError(f"智谱接口返回格式异常: {body}")
-
-
 def call_ai_model(messages):
-    """Call Zhipu assistant API (not OpenAI mode).
+    """Call Zhipu chat/completions API.
 
     Configure with env vars:
     - ZHIPU_API_KEY
-    - ZHIPU_ASSISTANT_ID
     - ZHIPU_API_BASE (default: https://open.bigmodel.cn/api/paas/v4)
+    - ZHIPU_MODEL (default: glm-5)
     """
     api_base = os.getenv("ZHIPU_API_BASE", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
     api_key = os.getenv("ZHIPU_API_KEY", "")
-    assistant_id = os.getenv("ZHIPU_ASSISTANT_ID", "")
+    model = os.getenv("ZHIPU_MODEL", "glm-5")
 
     latest_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
-    system_text = next((m["content"] for m in messages if m.get("role") == "system"), "")
-    merged_user_text = f"{system_text}\n\n用户提问：{latest_user}".strip()
-    if not api_key or not assistant_id:
+    if not api_key:
         return (
             "[本地演示模式] 我收到了你的消息："
-            f"{latest_user}。\n请配置 ZHIPU_API_KEY 和 ZHIPU_ASSISTANT_ID 以启用智谱智能体对话。"
+            f"{latest_user}。\n请配置 ZHIPU_API_KEY 以启用智谱模型对话。"
         )
 
-    payload = {
-        "assistant_id": assistant_id,
-        "messages": [{"role": "user", "content": merged_user_text}],
+    url = f"{api_base}/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
     }
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        f"{api_base}/assistant",
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
-    )
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": 1.0,
+    }
 
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="ignore")
-        raise RuntimeError(f"AI接口错误: {e.code} {detail}") from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"无法连接AI接口: {e}") from e
+        resp = requests.post(url, headers=headers, json=payload, timeout=30)
+    except requests.RequestException as e:
+        raise RuntimeError(f"无法连接智谱接口: {e}") from e
 
-    return _extract_zhipu_reply(body)
+    if resp.status_code != 200:
+        raise RuntimeError(f"API调用失败: {resp.status_code}, {resp.text}")
+
+    try:
+        body = resp.json()
+        return body["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        raise RuntimeError(f"智谱接口返回格式异常: {resp.text}") from e
 
 
 def web_server():

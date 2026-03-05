@@ -7,9 +7,9 @@
 1. 配置智谱智能体:
    启动 `web.py` 前设置环境变量：
    - `ZHIPU_API_KEY`：你的智谱 API Key
-   - `ZHIPU_ASSISTANT_ID`：智谱智能体ID
    - `ZHIPU_API_BASE`：接口地址（默认 `https://open.bigmodel.cn/api/paas/v4`）
-   不配置 Key 或 Assistant ID 时，系统会进入本地演示回复模式。
+   - `ZHIPU_MODEL`：模型名（默认 `glm-5`）
+   不配置 Key 时，系统会进入本地演示回复模式。
 
 2. 安装依赖:
    安装 Python 依赖并确保 Flask/SQLAlchemy 可用。
