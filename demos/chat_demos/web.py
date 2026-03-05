@@ -11,31 +11,58 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from collector import collecting_all_info
 
 
+def _extract_zhipu_reply(body):
+    """Best-effort parse for multiple Zhipu response schemas."""
+    if isinstance(body, dict):
+        if body.get("choices"):
+            content = body["choices"][0].get("message", {}).get("content")
+            if content:
+                return content.strip()
+
+        if isinstance(body.get("output"), dict):
+            out = body["output"]
+            if out.get("text"):
+                return str(out["text"]).strip()
+
+        if body.get("reply"):
+            return str(body["reply"]).strip()
+
+        if body.get("data") and isinstance(body["data"], dict):
+            data = body["data"]
+            if data.get("reply"):
+                return str(data["reply"]).strip()
+
+    raise RuntimeError(f"智谱接口返回格式异常: {body}")
+
+
 def call_ai_model(messages):
-    """Call an OpenAI-compatible chat API.
+    """Call Zhipu assistant API (not OpenAI mode).
 
     Configure with env vars:
-    - OPENAI_API_BASE (default: https://api.openai.com/v1)
-    - OPENAI_API_KEY
-    - CHAT_MODEL (default: gpt-4o-mini)
+    - ZHIPU_API_KEY
+    - ZHIPU_ASSISTANT_ID
+    - ZHIPU_API_BASE (default: https://open.bigmodel.cn/api/paas/v4)
     """
-    api_base = os.getenv("OPENAI_API_BASE", "https://api.openai.com/v1").rstrip("/")
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    model = os.getenv("CHAT_MODEL", "gpt-4o-mini")
+    api_base = os.getenv("ZHIPU_API_BASE", "https://open.bigmodel.cn/api/paas/v4").rstrip("/")
+    api_key = os.getenv("ZHIPU_API_KEY", "")
+    assistant_id = os.getenv("ZHIPU_ASSISTANT_ID", "")
 
-    if not api_key:
-        # Local fallback for demo usage when key is not configured.
-        latest_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
-        return f"[本地演示模式] 我收到了你的消息：{latest_user}。\n请配置 OPENAI_API_KEY 以启用真实大模型对话。"
+    latest_user = next((m["content"] for m in reversed(messages) if m.get("role") == "user"), "")
+    system_text = next((m["content"] for m in messages if m.get("role") == "system"), "")
+    merged_user_text = f"{system_text}\n\n用户提问：{latest_user}".strip()
+    if not api_key or not assistant_id:
+        return (
+            "[本地演示模式] 我收到了你的消息："
+            f"{latest_user}。\n请配置 ZHIPU_API_KEY 和 ZHIPU_ASSISTANT_ID 以启用智谱智能体对话。"
+        )
 
     payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": 0.7,
+        "assistant_id": assistant_id,
+        "messages": [{"role": "user", "content": merged_user_text}],
     }
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
-        f"{api_base}/chat/completions",
+        f"{api_base}/assistant",
         data=data,
         headers={
             "Content-Type": "application/json",
@@ -53,10 +80,7 @@ def call_ai_model(messages):
     except urllib.error.URLError as e:
         raise RuntimeError(f"无法连接AI接口: {e}") from e
 
-    try:
-        return body["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        raise RuntimeError(f"AI接口返回格式异常: {body}") from e
+    return _extract_zhipu_reply(body)
 
 
 def web_server():
